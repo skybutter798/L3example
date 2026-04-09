@@ -11,4 +11,3 @@ Simple public examples for building on **DCAI L3**.
 - Chain ID: `18441`
 - Example RPC format: `http://139.180.140.143/rpc/basic/<API_KEY>/`
 
-This repo is intentionally simple so it can be shared directly with students and builders.
