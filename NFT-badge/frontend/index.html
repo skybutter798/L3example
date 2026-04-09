@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NFT Badge Example</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 20px; }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input, select, button { width: 100%; padding: 10px; margin-top: 6px; }
+    button { cursor: pointer; }
+    pre { background: #111; color: #eee; padding: 12px; border-radius: 8px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>NFT Badge Example</h1>
+    <p>Simple demo: if a user meets a requirement, the backend mints LV1 / LV2 / LV3 badge NFT to the user's wallet.</p>
+
+    <label for="walletAddress">User wallet address</label>
+    <input id="walletAddress" placeholder="0x..." />
+
+    <label for="level">Badge level</label>
+    <select id="level">
+      <option value="1">LV1</option>
+      <option value="2">LV2</option>
+      <option value="3">LV3</option>
+    </select>
+
+    <label>
+      <input id="completedTask" type="checkbox" checked style="width:auto; margin-right:8px;" />
+      User has met the requirement
+    </label>
+
+    <button id="mintButton">Mint Badge</button>
+
+    <h3>Response</h3>
+    <pre id="output">Waiting...</pre>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+    document.getElementById('mintButton').addEventListener('click', async () => {
+      const walletAddress = document.getElementById('walletAddress').value.trim();
+      const level = Number(document.getElementById('level').value);
+      const completedTask = document.getElementById('completedTask').checked;
+
+      output.textContent = 'Sending request...';
+
+      try {
+        const res = await fetch('http://localhost:3000/mint-badge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletAddress, level, completedTask })
+        });
+
+        const data = await res.json();
+        output.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        output.textContent = JSON.stringify({ ok: false, error: err.message }, null, 2);
+      }
+    });
+  </script>
+</body>
+</html>
