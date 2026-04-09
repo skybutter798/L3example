@@ -5,6 +5,7 @@ Simple public examples for building on **DCAI L3**.
 ## Included example
 
 - [`Badge NFT/`](./Badge%20NFT/) — a simple ERC-721 badge example showing how a backend can mint LV1 / LV2 / LV3 NFT badges to users after they meet a requirement
+- [`Mini Wallet/`](./Mini%20Wallet/) — a simple frontend wallet example with connect wallet, refresh balance, and send native token
 
 ## DCAI L3
 
