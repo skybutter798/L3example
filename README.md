@@ -4,18 +4,11 @@ Simple public examples for building on **DCAI L3**.
 
 ## Included example
 
-- [`NFT-badge/`](./NFT-badge/) — mint NFT badges (LV1 / LV2 / LV3) to users after they meet a requirement
-
-## What students learn
-
-- basic ERC-721 badge contract design
-- backend minting with owner/minter wallet
-- simple frontend-to-backend flow
-- how to keep private keys off the frontend
+- [`Badge NFT/`](./Badge%20NFT/) — a simple ERC-721 badge example showing how a backend can mint LV1 / LV2 / LV3 NFT badges to users after they meet a requirement
 
 ## DCAI L3
 
 - Chain ID: `18441`
 - Example RPC format: `http://139.180.140.143/rpc/basic/<API_KEY>/`
 
-This repo is intentionally simple for teaching and workshop demos.
+This repo is intentionally simple so it can be shared directly with students and builders.

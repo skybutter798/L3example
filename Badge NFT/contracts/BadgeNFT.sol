@@ -10,10 +10,7 @@ contract BadgeNFT is ERC721, Ownable {
 
     event BadgeMinted(address indexed to, uint256 indexed tokenId, uint8 level);
 
-    constructor(address initialOwner)
-        ERC721("DCAI Badge", "DBADGE")
-        Ownable(initialOwner)
-    {}
+    constructor(address initialOwner) ERC721("DCAI Badge", "DBADGE") Ownable(initialOwner) {}
 
     function mintBadge(address to, uint8 level) external onlyOwner returns (uint256) {
         require(to != address(0), "Invalid address");
@@ -31,7 +28,7 @@ contract BadgeNFT is ERC721, Ownable {
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        require(ownerOf(tokenId) != address(0), "Token does not exist");
 
         uint8 level = badgeLevel[tokenId];
 

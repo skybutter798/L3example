@@ -1,5 +1,5 @@
 {
-  "name": "nft-badge-example",
+  "name": "badge-nft-example",
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
@@ -12,6 +12,7 @@
     "express": "^4.21.2"
   },
   "devDependencies": {
-    "@openzeppelin/contracts": "^5.2.0"
+    "@openzeppelin/contracts": "^5.2.0",
+    "hardhat": "^2.22.18"
   }
 }

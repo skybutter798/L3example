@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NFT Badge Example</title>
+  <title>Badge NFT Example</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+    body { font-family: Arial, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
     .card { border: 1px solid #ddd; border-radius: 12px; padding: 20px; }
     label { display: block; margin-top: 12px; font-weight: 600; }
     input, select, button { width: 100%; padding: 10px; margin-top: 6px; }
@@ -15,8 +15,8 @@
 </head>
 <body>
   <div class="card">
-    <h1>NFT Badge Example</h1>
-    <p>Simple demo: if a user meets a requirement, the backend mints LV1 / LV2 / LV3 badge NFT to the user's wallet.</p>
+    <h1>Badge NFT Example</h1>
+    <p>Simple teaching demo for DCAI L3 badge minting.</p>
 
     <label for="walletAddress">User wallet address</label>
     <input id="walletAddress" placeholder="0x..." />
@@ -39,6 +39,7 @@
     <pre id="output">Waiting...</pre>
   </div>
 
+  <script src="./frontend-example.js"></script>
   <script>
     const output = document.getElementById('output');
     document.getElementById('mintButton').addEventListener('click', async () => {
