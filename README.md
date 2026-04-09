@@ -8,6 +8,7 @@ Simple public examples for building on **DCAI L3**.
 - [`Mini Wallet/`](./Mini%20Wallet/) — a simple frontend wallet example with connect wallet, refresh balance, and send native token
 - [`Mini Game Claim/`](./Mini%20Game%20Claim/) — a tiny click game that lets the user earn points and claim them on-chain
 - [`Onchain Calculator/`](./Onchain%20Calculator/) — a simple calculator UI that stores calculation records on-chain
+- [`Onchain Voting/`](./Onchain%20Voting/) — a simple vote-on-chain example with live result counts
 
 ## DCAI L3
 

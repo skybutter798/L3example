@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onchain Voting - DCAI L3</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 860px; margin: 40px auto; padding: 0 16px; background: #0b0b0b; color: #f5f5f5; }
+    .card { border: 1px solid #2a2a2a; border-radius: 14px; padding: 20px; background: #111; }
+    h1, h2 { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input, button { width: 100%; padding: 12px; margin-top: 6px; border-radius: 10px; border: 1px solid #333; background: #161616; color: #fff; }
+    button { cursor: pointer; background: #2563eb; border: none; }
+    button.secondary { background: #333; }
+    .box { margin-top: 16px; padding: 14px; border-radius: 10px; background: #0d0d0d; border: 1px solid #222; }
+    .option { margin-top: 10px; padding: 14px; border-radius: 10px; background: #171717; border: 1px solid #2a2a2a; cursor: pointer; }
+    .option.active { border-color: #2563eb; background: #172554; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+    .muted { color: #aaa; }
+    .success { color: #86efac; }
+    .error { color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Onchain Voting</h1>
+    <p class="muted">Connect wallet, choose an option, and submit your vote on-chain.</p>
+
+    <div class="grid">
+      <button id="connectBtn">Connect Wallet</button>
+      <button id="switchBtn" class="secondary">Switch to DCAI L3</button>
+    </div>
+
+    <div class="box">
+      <h2>Wallet</h2>
+      <div><strong>Address:</strong> <span id="address" class="mono">Not connected</span></div>
+      <div style="margin-top:8px;"><strong>Contract:</strong> <input id="contractAddress" placeholder="Paste deployed OnchainVoting contract address" /></div>
+    </div>
+
+    <div class="box">
+      <h2>Vote</h2>
+      <div id="option0" class="option">Option A</div>
+      <div id="option1" class="option">Option B</div>
+      <div id="option2" class="option">Option C</div>
+      <button id="voteBtn" style="margin-top:14px;">Vote On Chain</button>
+    </div>
+
+    <div class="box">
+      <h2>Live Results</h2>
+      <div>Option A: <span id="count0">-</span></div>
+      <div style="margin-top:8px;">Option B: <span id="count1">-</span></div>
+      <div style="margin-top:8px;">Option C: <span id="count2">-</span></div>
+    </div>
+
+    <div class="box">
+      <h2>Status</h2>
+      <div id="status" class="muted">Waiting for action...</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+  <script>
+    const DCAI_CHAIN = {
+      chainId: '0x4809',
+      chainName: 'DCAI L3 Testnet',
+      nativeCurrency: { name: 'tDCAI', symbol: 'tDCAI', decimals: 18 },
+      rpcUrls: ['http://139.180.188.61:8545'],
+      blockExplorerUrls: ['http://139.180.140.143/']
+    };
+
+    const ABI = [
+      'function vote(uint8 optionIndex) external',
+      'function getVoteCounts() view returns (uint256[3])',
+      'function hasVoted(address user) view returns (bool)'
+    ];
+
+    let selectedAddress = null;
+    let selectedOption = null;
+
+    const addressEl = document.getElementById('address');
+    const statusEl = document.getElementById('status');
+    const contractInput = document.getElementById('contractAddress');
+
+    function setStatus(message, type = 'muted') {
+      statusEl.className = type;
+      statusEl.textContent = message;
+    }
+
+    function selectOption(index) {
+      selectedOption = index;
+      [0,1,2].forEach(i => {
+        document.getElementById('option' + i).classList.toggle('active', i === index);
+      });
+    }
+
+    async function ensureWallet() {
+      if (!window.ethereum) throw new Error('MetaMask or an EVM wallet is required.');
+      return window.ethereum;
+    }
+
+    async function connectWallet() {
+      const ethereum = await ensureWallet();
+      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+      selectedAddress = accounts[0] || null;
+      addressEl.textContent = selectedAddress || 'Not connected';
+      setStatus('Wallet connected.', 'success');
+      return selectedAddress;
+    }
+
+    async function switchToDcai() {
+      const ethereum = await ensureWallet();
+      try {
+        await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: DCAI_CHAIN.chainId }] });
+        setStatus('Switched to DCAI L3.', 'success');
+      } catch (err) {
+        if (err.code === 4902) {
+          await ethereum.request({ method: 'wallet_addEthereumChain', params: [DCAI_CHAIN] });
+          setStatus('DCAI L3 added to wallet.', 'success');
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    async function getContract(signerMode = false) {
+      const ethereum = await ensureWallet();
+      const contractAddress = contractInput.value.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
+        throw new Error('Please enter a valid contract address.');
+      }
+      const provider = new ethers.BrowserProvider(ethereum);
+      if (signerMode) {
+        const signer = await provider.getSigner();
+        return new ethers.Contract(contractAddress, ABI, signer);
+      }
+      return new ethers.Contract(contractAddress, ABI, provider);
+    }
+
+    async function refreshCounts() {
+      if (!window.ethereum) return;
+      const contractAddress = contractInput.value.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) return;
+      const contract = await getContract(false);
+      const counts = await contract.getVoteCounts();
+      document.getElementById('count0').textContent = counts[0].toString();
+      document.getElementById('count1').textContent = counts[1].toString();
+      document.getElementById('count2').textContent = counts[2].toString();
+    }
+
+    async function voteOnChain() {
+      if (selectedOption === null) throw new Error('Please choose an option first.');
+      if (!selectedAddress) await connectWallet();
+
+      const contract = await getContract(true);
+      const alreadyVoted = await contract.hasVoted(selectedAddress);
+      if (alreadyVoted) throw new Error('This wallet has already voted.');
+
+      const tx = await contract.vote(selectedOption);
+      setStatus('Transaction sent: ' + tx.hash, 'success');
+      await tx.wait();
+      setStatus('Vote submitted on-chain.', 'success');
+      await refreshCounts();
+    }
+
+    document.getElementById('connectBtn').addEventListener('click', async () => {
+      try { await connectWallet(); await refreshCounts(); } catch (err) { setStatus(err.message || 'Connect failed.', 'error'); }
+    });
+
+    document.getElementById('switchBtn').addEventListener('click', async () => {
+      try { await switchToDcai(); } catch (err) { setStatus(err.message || 'Switch failed.', 'error'); }
+    });
+
+    document.getElementById('voteBtn').addEventListener('click', async () => {
+      try { await voteOnChain(); } catch (err) { setStatus(err.message || 'Vote failed.', 'error'); }
+    });
+
+    [0,1,2].forEach(i => {
+      document.getElementById('option' + i).addEventListener('click', () => selectOption(i));
+    });
+
+    contractInput.addEventListener('change', async () => {
+      try { await refreshCounts(); } catch (err) { setStatus(err.message || 'Refresh failed.', 'error'); }
+    });
+
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', async (accounts) => {
+        selectedAddress = accounts[0] || null;
+        addressEl.textContent = selectedAddress || 'Not connected';
+      });
+    }
+  </script>
+</body>
+</html>
