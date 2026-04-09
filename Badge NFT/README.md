@@ -7,7 +7,6 @@ A simple teaching example for minting **NFT badges** on **DCAI L3**.
 - how to build a simple **ERC-721** badge contract
 - how a **backend** can mint a badge for a user
 - how to use an **owner/minter private key** safely on the backend
-- how to structure a beginner-friendly sample repo for students
 
 ## Basic flow
 
