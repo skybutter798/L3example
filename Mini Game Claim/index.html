@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini Game Claim - DCAI L3</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 860px; margin: 40px auto; padding: 0 16px; background: #0b0b0b; color: #f5f5f5; }
+    .card { border: 1px solid #2a2a2a; border-radius: 14px; padding: 20px; background: #111; }
+    h1, h2 { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button, input { width: 100%; padding: 12px; margin-top: 8px; border-radius: 10px; border: 1px solid #333; background: #161616; color: #fff; }
+    button { cursor: pointer; background: #2563eb; border: none; }
+    button.secondary { background: #333; }
+    button.game { height: 120px; font-size: 24px; font-weight: bold; background: #7c3aed; }
+    .box { margin-top: 16px; padding: 14px; border-radius: 10px; background: #0d0d0d; border: 1px solid #222; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+    .muted { color: #aaa; }
+    .success { color: #86efac; }
+    .error { color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Mini Game Claim</h1>
+    <p class="muted">Easy DCAI L3 sample: connect wallet, play a click game, then claim points on-chain.</p>
+
+    <div class="grid">
+      <button id="connectBtn">Connect Wallet</button>
+      <button id="switchBtn" class="secondary">Switch to DCAI L3</button>
+    </div>
+
+    <div class="box">
+      <h2>Wallet</h2>
+      <div><strong>Address:</strong> <span id="address" class="mono">Not connected</span></div>
+      <div style="margin-top:8px;"><strong>Contract:</strong> <input id="contractAddress" placeholder="Paste deployed PointsClaim contract address" /></div>
+    </div>
+
+    <div class="box">
+      <h2>Game</h2>
+      <div><strong>Time Left:</strong> <span id="timeLeft">10</span>s</div>
+      <div style="margin-top:8px;"><strong>Current Score:</strong> <span id="score">0</span></div>
+      <div style="margin-top:8px;"><strong>Claimable Points:</strong> <span id="claimable">0</span></div>
+      <div class="grid" style="margin-top:12px;">
+        <button id="startBtn" class="secondary">Start Game</button>
+        <button id="gameBtn" class="game" disabled>CLICK!</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Claim On Chain</h2>
+      <button id="claimBtn">Claim Points</button>
+      <div style="margin-top:8px;"><strong>Total Claimed (on chain):</strong> <span id="totalClaimed">-</span></div>
+      <div style="margin-top:8px;"><strong>Claim Count:</strong> <span id="claimCount">-</span></div>
+    </div>
+
+    <div class="box">
+      <h2>Status</h2>
+      <div id="status" class="muted">Waiting for action...</div>
+    </div>
+  </div>
+
+  <script>
+    const DCAI_CHAIN = {
+      chainId: '0x4809',
+      chainName: 'DCAI L3 Testnet',
+      nativeCurrency: { name: 'tDCAI', symbol: 'tDCAI', decimals: 18 },
+      rpcUrls: ['http://139.180.188.61:8545'],
+      blockExplorerUrls: ['http://139.180.140.143/']
+    };
+
+    const ABI = [
+      'function claimPoints(uint256 amount) external',
+      'function totalClaimedPoints(address user) view returns (uint256)',
+      'function claimCount(address user) view returns (uint256)'
+    ];
+
+    let selectedAddress = null;
+    let score = 0;
+    let claimablePoints = 0;
+    let timeLeft = 10;
+    let timer = null;
+
+    const addressEl = document.getElementById('address');
+    const scoreEl = document.getElementById('score');
+    const claimableEl = document.getElementById('claimable');
+    const timeLeftEl = document.getElementById('timeLeft');
+    const statusEl = document.getElementById('status');
+    const totalClaimedEl = document.getElementById('totalClaimed');
+    const claimCountEl = document.getElementById('claimCount');
+    const contractInput = document.getElementById('contractAddress');
+    const gameBtn = document.getElementById('gameBtn');
+
+    function setStatus(message, type = 'muted') {
+      statusEl.className = type;
+      statusEl.textContent = message;
+    }
+
+    function updateGameUI() {
+      scoreEl.textContent = score;
+      claimableEl.textContent = claimablePoints;
+      timeLeftEl.textContent = timeLeft;
+    }
+
+    async function ensureWallet() {
+      if (!window.ethereum) throw new Error('MetaMask or an EVM wallet is required.');
+      return window.ethereum;
+    }
+
+    async function connectWallet() {
+      const ethereum = await ensureWallet();
+      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+      selectedAddress = accounts[0] || null;
+      addressEl.textContent = selectedAddress || 'Not connected';
+      setStatus('Wallet connected.', 'success');
+      return selectedAddress;
+    }
+
+    async function switchToDcai() {
+      const ethereum = await ensureWallet();
+      try {
+        await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: DCAI_CHAIN.chainId }] });
+        setStatus('Switched to DCAI L3.', 'success');
+      } catch (err) {
+        if (err.code === 4902) {
+          await ethereum.request({ method: 'wallet_addEthereumChain', params: [DCAI_CHAIN] });
+          setStatus('DCAI L3 added to wallet.', 'success');
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = 10;
+      updateGameUI();
+      gameBtn.disabled = false;
+      setStatus('Game started. Click as fast as you can for 10 seconds!', 'success');
+
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        timeLeft -= 1;
+        updateGameUI();
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          timer = null;
+          gameBtn.disabled = true;
+          claimablePoints = score;
+          updateGameUI();
+          setStatus('Game ended. You can now claim your points on-chain.', 'success');
+        }
+      }, 1000);
+    }
+
+    function clickGame() {
+      if (timeLeft > 0) {
+        score += 1;
+        updateGameUI();
+      }
+    }
+
+    async function getContractWithSigner() {
+      const ethereum = await ensureWallet();
+      if (!selectedAddress) await connectWallet();
+
+      const contractAddress = contractInput.value.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
+        throw new Error('Please enter a valid contract address.');
+      }
+
+      const provider = new ethers.BrowserProvider(ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(contractAddress, ABI, signer);
+      return { contract, provider };
+    }
+
+    async function refreshOnChainStats() {
+      const contractAddress = contractInput.value.trim();
+      if (!selectedAddress || !/^0x[a-fA-F0-9]{40}$/.test(contractAddress) || !window.ethereum) return;
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(contractAddress, ABI, provider);
+      const total = await contract.totalClaimedPoints(selectedAddress);
+      const count = await contract.claimCount(selectedAddress);
+      totalClaimedEl.textContent = total.toString();
+      claimCountEl.textContent = count.toString();
+    }
+
+    async function claimPoints() {
+      if (claimablePoints <= 0) {
+        throw new Error('No claimable points yet. Play the game first.');
+      }
+
+      const { contract } = await getContractWithSigner();
+      const tx = await contract.claimPoints(claimablePoints);
+      setStatus('Transaction sent: ' + tx.hash, 'success');
+      await tx.wait();
+      setStatus('Points claimed on-chain successfully.', 'success');
+      claimablePoints = 0;
+      updateGameUI();
+      await refreshOnChainStats();
+    }
+
+    document.getElementById('connectBtn').addEventListener('click', async () => {
+      try { await connectWallet(); await refreshOnChainStats(); } catch (err) { setStatus(err.message || 'Connect failed.', 'error'); }
+    });
+
+    document.getElementById('switchBtn').addEventListener('click', async () => {
+      try { await switchToDcai(); } catch (err) { setStatus(err.message || 'Switch failed.', 'error'); }
+    });
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+      try { startGame(); } catch (err) { setStatus(err.message || 'Could not start game.', 'error'); }
+    });
+
+    gameBtn.addEventListener('click', clickGame);
+
+    document.getElementById('claimBtn').addEventListener('click', async () => {
+      try { await claimPoints(); } catch (err) { setStatus(err.message || 'Claim failed.', 'error'); }
+    });
+
+    contractInput.addEventListener('change', async () => {
+      try { await refreshOnChainStats(); } catch (err) { setStatus(err.message || 'Refresh contract stats failed.', 'error'); }
+    });
+
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', async (accounts) => {
+        selectedAddress = accounts[0] || null;
+        addressEl.textContent = selectedAddress || 'Not connected';
+        try { await refreshOnChainStats(); } catch {}
+      });
+    }
+
+    updateGameUI();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+</body>
+</html>
