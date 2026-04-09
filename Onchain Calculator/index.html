@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onchain Calculator - DCAI L3</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 860px; margin: 40px auto; padding: 0 16px; background: #0b0b0b; color: #f5f5f5; }
+    .card { border: 1px solid #2a2a2a; border-radius: 14px; padding: 20px; background: #111; }
+    h1, h2 { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input, select, button { width: 100%; padding: 12px; margin-top: 6px; border-radius: 10px; border: 1px solid #333; background: #161616; color: #fff; }
+    button { cursor: pointer; background: #2563eb; border: none; }
+    button.secondary { background: #333; }
+    .box { margin-top: 16px; padding: 14px; border-radius: 10px; background: #0d0d0d; border: 1px solid #222; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+    .muted { color: #aaa; }
+    .success { color: #86efac; }
+    .error { color: #fca5a5; }
+    .result { font-size: 28px; font-weight: bold; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Onchain Calculator</h1>
+    <p class="muted">Connect wallet, calculate a result, then submit the record on-chain.</p>
+
+    <div class="grid">
+      <button id="connectBtn">Connect Wallet</button>
+      <button id="switchBtn" class="secondary">Switch to DCAI L3</button>
+    </div>
+
+    <div class="box">
+      <h2>Wallet</h2>
+      <div><strong>Address:</strong> <span id="address" class="mono">Not connected</span></div>
+      <div style="margin-top:8px;"><strong>Contract:</strong> <input id="contractAddress" placeholder="Paste deployed OnchainCalculator contract address" /></div>
+    </div>
+
+    <div class="box">
+      <h2>Calculator</h2>
+      <label for="valueA">First number</label>
+      <input id="valueA" type="number" placeholder="10" />
+
+      <label for="operator">Operator</label>
+      <select id="operator">
+        <option value="+">+</option>
+        <option value="-">-</option>
+        <option value="*">×</option>
+        <option value="/">÷</option>
+      </select>
+
+      <label for="valueB">Second number</label>
+      <input id="valueB" type="number" placeholder="5" />
+
+      <div class="grid" style="margin-top:12px;">
+        <button id="calcBtn" class="secondary">Calculate</button>
+        <button id="submitBtn">Submit Record On Chain</button>
+      </div>
+
+      <div class="result">Result: <span id="result">-</span></div>
+    </div>
+
+    <div class="box">
+      <h2>On-chain Stats</h2>
+      <div><strong>Total Records:</strong> <span id="recordCount">-</span></div>
+    </div>
+
+    <div class="box">
+      <h2>Status</h2>
+      <div id="status" class="muted">Waiting for action...</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+  <script>
+    const DCAI_CHAIN = {
+      chainId: '0x4809',
+      chainName: 'DCAI L3 Testnet',
+      nativeCurrency: { name: 'tDCAI', symbol: 'tDCAI', decimals: 18 },
+      rpcUrls: ['http://139.180.188.61:8545'],
+      blockExplorerUrls: ['http://139.180.140.143/']
+    };
+
+    const ABI = [
+      'function submitCalculation(int256 a, string operator, int256 b, int256 result) external',
+      'function getRecordCount() view returns (uint256)'
+    ];
+
+    let selectedAddress = null;
+    let lastResult = null;
+
+    const addressEl = document.getElementById('address');
+    const resultEl = document.getElementById('result');
+    const statusEl = document.getElementById('status');
+    const recordCountEl = document.getElementById('recordCount');
+    const contractInput = document.getElementById('contractAddress');
+
+    function setStatus(message, type = 'muted') {
+      statusEl.className = type;
+      statusEl.textContent = message;
+    }
+
+    async function ensureWallet() {
+      if (!window.ethereum) throw new Error('MetaMask or an EVM wallet is required.');
+      return window.ethereum;
+    }
+
+    async function connectWallet() {
+      const ethereum = await ensureWallet();
+      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+      selectedAddress = accounts[0] || null;
+      addressEl.textContent = selectedAddress || 'Not connected';
+      setStatus('Wallet connected.', 'success');
+      return selectedAddress;
+    }
+
+    async function switchToDcai() {
+      const ethereum = await ensureWallet();
+      try {
+        await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: DCAI_CHAIN.chainId }] });
+        setStatus('Switched to DCAI L3.', 'success');
+      } catch (err) {
+        if (err.code === 4902) {
+          await ethereum.request({ method: 'wallet_addEthereumChain', params: [DCAI_CHAIN] });
+          setStatus('DCAI L3 added to wallet.', 'success');
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    function calculate() {
+      const a = Number(document.getElementById('valueA').value);
+      const b = Number(document.getElementById('valueB').value);
+      const op = document.getElementById('operator').value;
+
+      if (Number.isNaN(a) || Number.isNaN(b)) {
+        throw new Error('Please enter valid numbers.');
+      }
+
+      let result;
+      if (op === '+') result = a + b;
+      else if (op === '-') result = a - b;
+      else if (op === '*') result = a * b;
+      else if (op === '/') {
+        if (b === 0) throw new Error('Cannot divide by zero.');
+        result = a / b;
+      }
+
+      if (!Number.isInteger(result)) {
+        throw new Error('Use values that produce an integer result for this simple contract demo.');
+      }
+
+      lastResult = result;
+      resultEl.textContent = String(result);
+      setStatus('Calculation complete.', 'success');
+    }
+
+    async function getContractWithSigner() {
+      const ethereum = await ensureWallet();
+      if (!selectedAddress) await connectWallet();
+
+      const contractAddress = contractInput.value.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
+        throw new Error('Please enter a valid contract address.');
+      }
+
+      const provider = new ethers.BrowserProvider(ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(contractAddress, ABI, signer);
+      return { contract, provider };
+    }
+
+    async function refreshRecordCount() {
+      const contractAddress = contractInput.value.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress) || !window.ethereum) return;
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(contractAddress, ABI, provider);
+      const count = await contract.getRecordCount();
+      recordCountEl.textContent = count.toString();
+    }
+
+    async function submitOnChain() {
+      const a = Number(document.getElementById('valueA').value);
+      const b = Number(document.getElementById('valueB').value);
+      const op = document.getElementById('operator').value;
+
+      if (lastResult === null) {
+        throw new Error('Please calculate first.');
+      }
+
+      if (!Number.isInteger(a) || !Number.isInteger(b) || !Number.isInteger(lastResult)) {
+        throw new Error('This simple demo submits integer values only.');
+      }
+
+      const { contract } = await getContractWithSigner();
+      const tx = await contract.submitCalculation(a, op, b, lastResult);
+      setStatus('Transaction sent: ' + tx.hash, 'success');
+      await tx.wait();
+      setStatus('Calculation record submitted on-chain.', 'success');
+      await refreshRecordCount();
+    }
+
+    document.getElementById('connectBtn').addEventListener('click', async () => {
+      try { await connectWallet(); await refreshRecordCount(); } catch (err) { setStatus(err.message || 'Connect failed.', 'error'); }
+    });
+
+    document.getElementById('switchBtn').addEventListener('click', async () => {
+      try { await switchToDcai(); } catch (err) { setStatus(err.message || 'Switch failed.', 'error'); }
+    });
+
+    document.getElementById('calcBtn').addEventListener('click', () => {
+      try { calculate(); } catch (err) { setStatus(err.message || 'Calculate failed.', 'error'); }
+    });
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      try { await submitOnChain(); } catch (err) { setStatus(err.message || 'Submit failed.', 'error'); }
+    });
+
+    contractInput.addEventListener('change', async () => {
+      try { await refreshRecordCount(); } catch (err) { setStatus(err.message || 'Refresh failed.', 'error'); }
+    });
+
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', async (accounts) => {
+        selectedAddress = accounts[0] || null;
+        addressEl.textContent = selectedAddress || 'Not connected';
+        try { await refreshRecordCount(); } catch {}
+      });
+    }
+  </script>
+</body>
+</html>
