@@ -8,14 +8,6 @@ A simple student-friendly DCAI L3 example:
 - click **Claim on Chain**
 - write the claim record to DCAI L3
 
-## Why this sample is good for students
-
-It combines:
-- frontend interaction
-- wallet connection
-- smart contract write
-- visible on-chain result
-
 ## Flow
 
 1. connect wallet
